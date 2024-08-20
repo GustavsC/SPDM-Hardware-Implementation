@@ -1,4 +1,7 @@
-# SPDM-Hardware-Implementation
+
+SPDM-Hardware-Implementation 
+================================================
+Researchers: LARC-SEMBEI-Escola Politécnica da USP
 
 # Risc-V GNU Toolchain [1]
 
