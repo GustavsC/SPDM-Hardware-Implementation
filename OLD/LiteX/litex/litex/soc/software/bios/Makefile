@@ -1,8 +1,9 @@
 include ../include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
 
-SPDM_DIR?= /PATH/TO/libspdm
+SPDM_DIR?= /PATH/TO/Documentos/libspdm_docs/libspdm
 SPDM_FINAL?= $(SPDM_DIR)/build/lib
+SPDM_HEADERS = $(SPDM_DIR)/include
 SPDM_CRYPTO?= mbedtls
 
 LIBRARIES = cryptlib_$(SPDM_CRYPTO) $(SPDM_CRYPTO) cmockalib rnglib_null memlib malloclib debuglib spdm_crypt_lib spdm_secured_message_lib spdm_requester_lib spdm_common_lib spdm_transport_mctp_lib spdm_transport_pcidoe_lib spdm_device_secret_lib_null spdm_responder_lib mbedcrypto platform_lib spdm_crypt_ext_lib spdm_transport_test_lib mbedx509 debuglib_null 

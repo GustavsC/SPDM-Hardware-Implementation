@@ -38,49 +38,12 @@ $ chmod +x litex_setup.py
 $ ./litex_setup.py --init --tag=2024.04 --install --user --config=full
 $ export PATH=$PATH:/opt/riscv/bin
 $ source /tools/Xilinx/Vivado/2023.1/settings64.sh
-$ litex-boards/litex_boards/targets/digilent_netfpga_sume.py --build --cpu-type rocket --cpu-variant linux --cpu-mem-width 8 --with-ethernet --with-sdcard --bus-standard axi
+$ litex-boards/litex_boards/targets/digilent_netfpga_sume.py --build --cpu-type rocket --cpu-variant linux --with-ethernet --with-sdcard
 ```
 
-The Verilog source file will be located at: build/digilent_netfpga_sume/gateware/digilent_netfpga_sume.v
+The Binary will be located at build/digilent_nexys4ddr/gateware/digilent_nexys4ddr.bit
 
-#LibSPDM [5]
-
-Get LibSPDM library from the official repository.
-
-```
-$ git clone https://github.com/DMTF/libspdm.git
-$ cd libspdm
-$ git switch release-2.3
-$ git submodule update --init --recursive
-```
-
-##LibSPDM - LiteX
-
-Before compiling LibSPDM for LiteX, certain files must be modified. Replace the corresponding files with those in this repository, the directories in this repository have the same names, just replace them.
-In summary they are: config.h, crt_wrapper_host.c and CMakeLists.txt. All of them in this repository libspdm/libspdm_LiteX
-Once this is done, follow the instructions below in libspdm directory:
-
-```
-$ mkdir build
-$ cd build
-$ export PATH=$PATH:/opt/riscv/bin
-$ cmake -DARCH=riscv64 -DTOOLCHAIN=RISCV_GNU -DTARGET=Release -DCRYPTO=mbedtls
-$ make copy_sample_key
-$ make
-```
-
-##Libspdm in LiteX BIOS
-Before compiling LibSPDM within Litex, you must run the Makefile litex_libspdm.mk, paying attention to the correct directories when compiling.
-
-```
-$ make -f libspdm_litex.mk
-```
-Replace the corresponding files in Litex and add the libraries needed for compilation. All the files are in this repository under the path "LiteX/litex/litex/soc/software/bios".
-After that, run again:
-
-```
-$ litex-boards/litex_boards/targets/digilent_netfpga_sume.py --build --cpu-type rocket --cpu-variant linux --cpu-mem-width 8 --with-ethernet --with-sdcard --bus-standard axi
-```
+The Pre Compiled Binary is at this repository: System_on_Chip/Binaries/digilent_nexys4ddr.bit
 
 #System on Chip - Software [3]
 
@@ -189,6 +152,31 @@ litex_term /dev/ttyUSB1 --images=PATH/TO/boot.json
 
 Execute the digilent_nexys4ddr.bit in the FPGA.
 
+#LibSPDM [5]
+
+Get LibSPDM library from the official repository.
+
+```
+$ git clone https://github.com/DMTF/libspdm.git
+$ cd libspdm
+$ git switch release-2.3
+$ git submodule update --init --recursive
+```
+
+##LibSPDM - LiteX
+
+Before compiling LibSPDM for LiteX, certain files must be modified. Replace the corresponding files with those in this repository, the directories in this repository have the same names, just replace them.
+In summary they are: config.h, crt_wrapper_host.c and CMakeLists.txt. All of them in this repository libspdm/libspdm_LiteX
+Once this is done, follow the instructions below in libspdm directory:
+
+```
+$ mkdir build
+$ cd build
+$ export PATH=$PATH:/opt/riscv/bin
+$ cmake -DARCH=riscv64 -DTOOLCHAIN=RISCV_GNU -DTARGET=Release -DCRYPTO=mbedtls
+$ make copy_sample_key
+$ make
+```
 
 ##LibSPDM - Kernel Linux
 Before compiling LibSPDM for Kernel, certain files must be modified. Replace the corresponding files with those in this repository, the directories in this repository have the same names, just replace them.
@@ -200,12 +188,23 @@ $ mkdir build_buildroot
 $ cd build_buildroot
 $ export PATH=$PATH:/opt/riscv/bin
 $ export PATH="/PATH/TO/buildroot-2023.05.1/output/host/bin:$PATH"
-$ cmake .. -DARCH=riscv64 -DTOOLCHAIN=RISCV_GNU -DTARGET=Release -DCRYPTO=mbedtls
+$ cmake -DARCH=riscv64 -DTOOLCHAIN=RISCV_GNU -DTARGET=Release -DCRYPTO=mbedtls
 $ make copy_sample_key
 $ make
 ```
 
+#Libspdm in LiteX BIOS
+Before compiling LibSPDM within Litex, you must run the Makefile litex_libspdm.mk, paying attention to the correct directories when compiling.
 
+```
+$ make -f libspdm_litex.mk
+```
+Replace the corresponding files in this directory in Litex and add the libraries needed for compilation. All the files are in this repository under the path "litex".
+After that, execute again:
+
+```
+$ litex-boards/litex_boards/targets/digilent_nexys4ddr.py --build --cpu-type rocket --cpu-variant linux --sys-clk-freq 50e6 --with-ethernet --with-sdcard
+```
 #Libspdm in Linux
 Replace the corresponding files in this directory in buildroot-2023.05.1/output/build/linux-6.1.26 and add the libraries needed for compilation. All the files are in this repository under the path "System_on_Chip/Software".
 After that:
