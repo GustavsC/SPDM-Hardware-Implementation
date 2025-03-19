@@ -29,9 +29,6 @@ from liteeth.phy.s7rgmii import LiteEthPHYRGMII
 from liteeth.phy.v7_1000basex import V7_1000BASEX
 from liteeth.phy import LiteEthPHY
 
-from litepcie.phy.s7pciephy import S7PCIEPHY
-from litepcie.software import generate_litepcie_software
-
 # CRG ----------------------------------------------------------------------------------------------
 
 class _CRG(LiteXModule):
@@ -62,8 +59,6 @@ class BaseSoC(SoCCore):
         with_etherbone         = False,
         with_led_chaser        = True,
         with_i2c               = False,
-        with_pcie              = True,
-        with_spdm              = False,
         **kwargs):
         platform = digilent_netfpga_sume.Platform()
 
@@ -86,22 +81,7 @@ class BaseSoC(SoCCore):
                 size          = 0x40000000,
                 l2_cache_size = kwargs.get("l2_size", 8192)
             )
-        
-        if with_spdm:
-        #    self.add_spdm("spdm",
-         #       phy           = self.ddrphy,
-          #      module        = MT8KTF51264(sys_clk_freq, "1:4"),
-           #     size          = 0x20000,
-            #    l2_cache_size = kwargs.get("l2_size", 0)
-            self.add_spdm("spdm", 0xd0000000, size = 0x20000, contents = [], mode = "rwx")
-            #)
-        if with_pcie:         
-            self.pcie_phy = S7PCIEPHY(platform, platform.request("pcie_x8"),
-                data_width = 128,
-                bar0_size  = 0x20000)
-            self.add_pcie(phy=self.pcie_phy, ndmas=1)
-
-            
+                           
         # Ethernet / Etherbone ---------------------------------------------------------------------
         if with_ethernet or with_etherbone:
             self.ethphy = V7_1000BASEX(
@@ -136,7 +116,6 @@ def main():
     parser = LiteXArgumentParser(platform=digilent_netfpga_sume.Platform, description="LiteX SoC on NetFPGA-Sume.")
     parser.add_target_argument("--sys-clk-freq", default=125e6, type=float, help="System clock frequency.")
     parser.add_target_argument("--with-i2c",             action="store_true",     help="Enable I2C support.")
-    parser.add_target_argument("--with-pcie",    action="store_true",       help="Enable PCIe support.")
     ethopts = parser.target_group.add_mutually_exclusive_group()
     ethopts.add_argument("--with-ethernet",  action="store_true", help="Enable Ethernet support.")
     ethopts.add_argument("--with-etherbone", action="store_true", help="Enable Etherbone support.")
@@ -152,7 +131,6 @@ def main():
         with_ethernet          = args.with_ethernet,
         with_etherbone         = args.with_etherbone,
         with_i2c               = args.with_i2c,
-        with_pcie    = args.with_pcie,
         **parser.soc_argdict
     )
     

@@ -28,14 +28,17 @@ class LiteEthSPDMRX(LiteXModule):
 
   	#The sender buffer is typically used by the SPDM responder (device) to construct and send responses or 
   	#messages to the requester (initiator or client). It's dedicated to outgoing messages initiated by the responder.
-  	self._register_SPDM_3 = CSRStorage(32, name = "SPDM_sender_buffer", description = "SPDM_Control") 
-  	self._register_SPDM_4 = CSRStorage(32, name = "SPDM_requester_buffer_control", description = "SPDM_Control")
+  	self._register_SPDM_3 = CSRStorage(32, name = "SPDM_requester_control", description = "SPDM_Control") 
+  	self._register_SPDM_4 = CSRStorage(32, name = "SPDM_responder_control", description = "SPDM_Control")
   	
   	
   	#Conversely, the receiver buffer is used by the SPDM requester to receive and process responses or messages sent by the responder. 
   	#It's dedicated to incoming messages initiated by the responder and received by the requester.
-  	self._register_SPDM_5 = CSRStorage(32, name = "SPDM_receiver_buffer", description = "SPDM_Control") #Used by requester
-  	self._register_SPDM_6 = CSRStorage(32, name = "SPDM_responder_buffer_control", description = "SPDM_Control")
+  	self._register_SPDM_5 = CSRStorage(8, name = "SPDM_requester_context_data", description = "SPDM_Control") #Used by requester
+  	self._register_SPDM_6 = CSRStorage(8, name = "SPDM_responder_context_data", description = "SPDM_Control")
+  	
+  	self._register_SPDM_7 = CSRStorage(8, name = "SPDM_FIFO", description = "SPDM_Control")
+  	self._register_SPDM_8 = CSRStorage(11, name = "DATA_COUNT", description = "SPDM_Control")
   	
   	self.source = source = stream.Endpoint(eth_phy_description(8))
   	
