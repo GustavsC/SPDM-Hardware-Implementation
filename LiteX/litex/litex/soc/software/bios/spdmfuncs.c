@@ -4,6 +4,7 @@
 #include <system.h>
 #include <string.h>
 #include <irq.h>
+#include <math.h>
 
 #include <generated/mem.h>
 #include <generated/csr.h>
@@ -53,19 +54,9 @@
 #include <fcntl.h>
 #include <bios/spdmfuncs.h>
 
-#define SPDM_REQUESTER_DONE 0x10
-#define SPDM_REQUESTER_SENDING 0x20
-
-#define SPDM_RESPONDER_DONE 0x30
-#define SPDM_RESPONDER_SENDING 0x40
-
 bool m_send_receive_buffer_acquired = false;
 uint8_t m_send_receive_buffer[LIBSPDM_MAX_MESSAGE_BUFFER_SIZE];
 size_t m_send_receive_buffer_size;
-
-const uint32_t *session_id;
-size_t *cert_chain_size;
-void *cert_chain;
 
 uint32_t m_use_requester_capability_flags =
     (0 |
@@ -114,21 +105,6 @@ uint8_t m_use_mut_auth =
 uint8_t m_use_measurement_summary_hash_type =
     SPDM_CHALLENGE_REQUEST_ALL_MEASUREMENTS_HASH;
 
-uint8_t m_use_measurement_operation =
-    SPDM_GET_MEASUREMENTS_REQUEST_MEASUREMENT_OPERATION_TOTAL_NUMBER_OF_MEASUREMENTS;
-
-uint8_t m_use_measurement_attribute = 0;
-uint8_t slot_id = 0;
-uint8_t m_use_slot_count = 3;
-
-libspdm_key_update_action_t m_use_key_update_action = LIBSPDM_KEY_UPDATE_ACTION_MAX;
-
-uint32_t m_use_hash_algo;
-uint32_t m_use_measurement_hash_algo;
-uint32_t m_use_asym_algo;
-uint16_t m_use_req_asym_algo;
-
-
 uint8_t m_support_measurement_spec = SPDM_MEASUREMENT_BLOCK_HEADER_SPECIFICATION_DMTF;
     
 uint32_t m_support_measurement_hash_algo =
@@ -171,15 +147,6 @@ uint8_t m_session_policy =
 uint8_t m_end_session_attributes =
     SPDM_END_SESSION_REQUEST_ATTRIBUTES_PRESERVE_NEGOTIATED_STATE_CLEAR;
     
-    
-    void *m_mctp_context;
-libspdm_return_t spdm_get_response_vendor_defined_request(
-    void *spdm_context, const uint32_t *session_id, bool is_app_message,
-    size_t request_size, const void *request, size_t *response_size,
-    void *response);
-
-
-
 libspdm_return_t spdm_get_response_vendor_defined_request(
     void *spdm_context, const uint32_t *session_id, bool is_app_message,
     size_t request_size, const void *request, size_t *response_size,
@@ -202,10 +169,10 @@ libspdm_return_t spdm_get_response_vendor_defined_request(
 libspdm_return_t spdm_device_acquire_sender_buffer (
     void *context, size_t *max_msg_size, void **msg_buf_ptr)
 {
-    LIBSPDM_ASSERT (!m_send_receive_buffer_acquired);
+    //LIBSPDM_ASSERT (!m_send_receive_buffer_acquired);
     *max_msg_size = sizeof(m_send_receive_buffer);
     *msg_buf_ptr = m_send_receive_buffer;
-    libspdm_zero_mem (m_send_receive_buffer, sizeof(m_send_receive_buffer));
+    //libspdm_zero_mem (m_send_receive_buffer, sizeof(m_send_receive_buffer));
     m_send_receive_buffer_acquired = true;
     return LIBSPDM_STATUS_SUCCESS;
 }
@@ -213,8 +180,8 @@ libspdm_return_t spdm_device_acquire_sender_buffer (
 void spdm_device_release_sender_buffer (
     void *context, const void *msg_buf_ptr)
 {
-    LIBSPDM_ASSERT (m_send_receive_buffer_acquired);
-    LIBSPDM_ASSERT (msg_buf_ptr == m_send_receive_buffer);
+    //LIBSPDM_ASSERT (m_send_receive_buffer_acquired);
+    //LIBSPDM_ASSERT (msg_buf_ptr == m_send_receive_buffer);
     m_send_receive_buffer_acquired = false;
     return;
 }
@@ -222,10 +189,10 @@ void spdm_device_release_sender_buffer (
 libspdm_return_t spdm_device_acquire_receiver_buffer (
     void *context, size_t *max_msg_size, void **msg_buf_ptr)
 {
-    LIBSPDM_ASSERT (!m_send_receive_buffer_acquired);
+    //LIBSPDM_ASSERT (!m_send_receive_buffer_acquired);
     *max_msg_size = sizeof(m_send_receive_buffer);
     *msg_buf_ptr = m_send_receive_buffer;
-    libspdm_zero_mem (m_send_receive_buffer, sizeof(m_send_receive_buffer));
+    //libspdm_zero_mem (m_send_receive_buffer, sizeof(m_send_receive_buffer));
     m_send_receive_buffer_acquired = true;
     return LIBSPDM_STATUS_SUCCESS;
 }
@@ -233,8 +200,8 @@ libspdm_return_t spdm_device_acquire_receiver_buffer (
 void spdm_device_release_receiver_buffer (
     void *context, const void *msg_buf_ptr)
 {
-    LIBSPDM_ASSERT (m_send_receive_buffer_acquired);
-    LIBSPDM_ASSERT (msg_buf_ptr == m_send_receive_buffer);
+    //LIBSPDM_ASSERT (m_send_receive_buffer_acquired);
+    //LIBSPDM_ASSERT (msg_buf_ptr == m_send_receive_buffer);
     m_send_receive_buffer_acquired = false;
     return;
 }
@@ -246,76 +213,93 @@ libspdm_return_t spdm_requester_send_message(void *spdm_context,
                                              size_t message_size, const void *message,
                                              uint64_t timeout)
 {
-
-    //ethphy__register_spdm_SPDM_requester_buffer_control_write(SPDM_REQUESTER_SENDING);
+    
+    uint8_t wait = 0x01;
+    uint8_t write = 0x05;
+    uint8_t responder_signal = 0xF8; 
+    
+    uint8_t responder_execution = ethphy__register_spdm_SPDM_FIFO_read();
+    responder_execution = responder_execution & 0b00100000;
+    while(responder_execution != 0x20)
+    {
+       responder_execution = ethphy__register_spdm_SPDM_FIFO_read();
+       responder_execution = responder_execution & 0b00100000;
+    }
+    
     printf("Message size spdm_requester_send_message %zu \n", message_size);
 
     // Allocate memory for the uint32_t array
-    uint32_t *data = (uint32_t *)malloc(message_size * sizeof(uint32_t));
-
+    uint8_t *data = (uint8_t *)malloc(message_size * sizeof(uint32_t));
+    
+    uint32_t i = 0x0;
+    
+    ethphy__register_spdm_SPDM_requester_control_write(message_size);
     // Check if memory allocation was successful
     if (data == NULL) {
         printf("Memory allocation failed\n");
         return;
     }
-    
-    memcpy(data, message, sizeof(uint32_t) * message_size);
-    printf("SPDM Message from requester: ");
-    for (size_t i = 0; i < message_size/4; i++) {
-        printf("0x%x ", data[i]);
-        ethphy__register_spdm_SPDM_register_write(data[i]); 
         
+    memcpy(data, message, message_size);
+    printf("SPDM Message from requester: ");
+       
+    ethphy__register_spdm_SPDM_FIFO_write(wait);
+        
+    while(i < message_size) {
+         ethphy__register_spdm_SPDM_register_write(data[i]);
+         
+         ethphy__register_spdm_SPDM_FIFO_write(write);
+         ethphy__register_spdm_SPDM_FIFO_write(wait);
+         
+         printf("0x%x ", data[i]);              
+         i = i + 0x1;                            
     }
-    printf("\n");
-    //ethphy__register_spdm_SPDM_requester_buffer_control_write(SPDM_REQUESTER_DONE);
-    
+
+    printf("\n\n");    
     free(data);
     
-    
+    ethphy__register_spdm_SPDM_FIFO_write(responder_signal); 
     return LIBSPDM_STATUS_SUCCESS;
     
 }
 #endif
-
 #ifdef CSR_ETHPHY_BASE 
 libspdm_return_t spdm_requester_receive_message(void *spdm_context,
                                                 size_t *message_size,
                                                 void **message,
                                                 uint64_t timeout)
 { 
-    //ethphy__register_spdm_SPDM_requester_buffer_control_write(SPDM_REQUESTER_DONE);
-    //while(!
+
+    uint8_t wait = 0x02;
+    uint8_t read = 0x06;
     
-    size_t castMessage_size = (size_t) message_size;
-    uint32_t responder_packet[150];
-    //uint32_t *responder_packet = (uint32_t *)malloc(150 * sizeof(uint32_t));
+    uint8_t responder_execution = ethphy__register_spdm_SPDM_FIFO_read();
+    responder_execution = responder_execution & 0b00100000;
     
-    
-    printf("Message size spdm_requester_receive_message %zu \n", castMessage_size);
-    printf("SPDM Message from requester: ");
-    
-    for (size_t i = 0; i < 11; i++){ //castMessage_size/4
-    	responder_packet[i] = ethphy__register_spdm_SPDM_register_2_read();
-    	printf("0x%x ", responder_packet[i]);
+    while(responder_execution != 0x20)
+    {
+       responder_execution = ethphy__register_spdm_SPDM_FIFO_read();
+       responder_execution = responder_execution & 0b00100000;
     }
+    ethphy__register_spdm_SPDM_FIFO_write(wait);
+         
+    message_size = ethphy__register_spdm_SPDM_responder_control_read();
     
-    message = (void **)malloc(sizeof(void *));
+    printf("Message size spdm_requester_receive_message %zu \n", message_size);
+    printf("SPDM Message from responder: ");
     
-    *message = (void *)responder_packet;
-    
-    uint32_t *ptr = (uint32_t *)(*message);
-    
-    for (size_t i = 0; i < 11; i++){ //castMessage_size/4
-    	message[i] = responder_packet[i];
-    	//printf("0x%x ", message[i]);
+    for (size_t i = 0; i < message_size; i++){ //castMessage_size/4
+    	
+    	m_send_receive_buffer[i] = ethphy__register_spdm_SPDM_register_2_read();
+    	ethphy__register_spdm_SPDM_FIFO_write(read);
+    	ethphy__register_spdm_SPDM_FIFO_write(wait);
+    	
+    	printf("0x%x ", m_send_receive_buffer[i]);
     }
-   // memcpy(*message, responder_packet, sizeof(uint32_t) * castMessage_size);
-    
-   // void *responder_packet_ptr = (void*) responder_packet;
-    
-   // **message = (void**) &responder_packet_ptr;
-    
-    //free(message); 
+    printf("\n\n");   
+    *message = m_send_receive_buffer;
+    memcpy(*message, m_send_receive_buffer, message_size);
+  
     return LIBSPDM_STATUS_SUCCESS;
 } 
 #endif
@@ -323,8 +307,8 @@ libspdm_return_t spdm_requester_receive_message(void *spdm_context,
 void *spdm_requester(void)
 {
     uint8_t m_use_secured_message_version = 0x1;
-    void *spdm_context;
-    void *m_spdm_context;
+    uint8_t *spdm_context;
+    uint8_t *m_spdm_context;
     void *m_scratch_buffer;
     libspdm_return_t status = 0x1;
     
@@ -335,7 +319,7 @@ void *spdm_requester(void)
 
     spdm_version_number_t spdm_version;
     size_t scratch_buffer_size;
-   
+     
     printf("Memory used for requester context (in bytes): %zu \n", (uint32_t)libspdm_get_context_size());    
 
     m_spdm_context = (void *)malloc(libspdm_get_context_size());
@@ -365,6 +349,7 @@ void *spdm_requester(void)
     scratch_buffer_size = libspdm_get_sizeof_required_scratch_buffer(m_spdm_context);
     m_scratch_buffer = (void *)malloc(scratch_buffer_size);
     printf("Memory used for requester buffer (in bytes): %zu \n", scratch_buffer_size);
+    printf("Address scrath_buffer is %p.\n",m_scratch_buffer);
     
     if (m_scratch_buffer == NULL) {
         free(m_spdm_context);
@@ -372,7 +357,7 @@ void *spdm_requester(void)
         return NULL;
     }
     libspdm_set_scratch_buffer (spdm_context, m_scratch_buffer, scratch_buffer_size);
-    /*  
+      
     libspdm_zero_mem(&parameter, sizeof(parameter));
     parameter.location = LIBSPDM_DATA_LOCATION_LOCAL;
     spdm_version = SPDM_MESSAGE_VERSION_12 << SPDM_VERSION_NUMBER_SHIFT_BIT;
@@ -439,8 +424,8 @@ void *spdm_requester(void)
     data8 = m_support_other_params_support;
     status = libspdm_set_data(spdm_context, LIBSPDM_DATA_OTHER_PARAMS_SUPPORT, &parameter,
                      &data8, sizeof(data8));
-    printf("LIBSPDM_DATA_OTHER_PARAMS_SUPPORT - 0x%x\n", (uint32_t)status); 
-    */
+    printf("LIBSPDM_DATA_OTHER_PARAMS_SUPPORT - 0x%x\n\n", (uint32_t)status); 
+        
     status = libspdm_init_connection(spdm_context, 0);
     printf("libspdm_init_connection - 0x%x\n", (uint32_t)status);
      
@@ -509,6 +494,7 @@ void *spdm_responder(void)
     printf("0x%x \n", m_spdm_context);
     libspdm_init_context(spdm_context);
     printf("Context Initialzed \n");
+    
 
     libspdm_register_device_io_func(spdm_context, spdm_responder_send_message,
                                     spdm_responder_receive_message);
@@ -524,6 +510,7 @@ void *spdm_responder(void)
 
     scratch_buffer_size = libspdm_get_sizeof_required_scratch_buffer(m_spdm_context);
     m_scratch_buffer = (void *)malloc(scratch_buffer_size);
+    printf("Address scrath_buffer is %p.\n", m_scratch_buffer);
     if (m_scratch_buffer == NULL) {
         free(m_spdm_context);
         m_spdm_context = NULL;
