@@ -1,9 +1,20 @@
 
-SPDM-Hardware-Implementation 
+SPDM Hardware Implementation 
 ================================================
 Researchers: LARC-SEMBEI-Escola Politécnica da USP
 
-# Risc-V GNU Toolchain [1]
+This repository contains an implementation project of the Security Protocol and Data Model (SPDM) in hardware. The hardware can execute a BIOS as a Requester and an Ethernet card as a Responder, performed in 3 phases: GET_VERSION, GET_CAPABILITIES, and NEGOTIATE_ALGORITHMS [1].
+
+![image](https://github.com/user-attachments/assets/7fce130a-83e8-48ad-9fb9-9174fd753399)
+
+The project is executed in a NetFPGA SUME.
+
+# TCL Method
+
+# Compile Method
+All libraries and detailed toolchain
+
+## 1. RISC-V GNU Toolchain
 
 All compilation will be done with this toolchain: 
 
@@ -28,7 +39,9 @@ $ ./configure --prefix=/opt/riscv --enable-multilib
 $ make linux
 ```
 
-# System on Chip - Hardware [2]
+## 2. System on Chip - Hardware 
+
+The SoC will be build with LiteX library. Install:
 
 ```
 $ mkdir LiteX
@@ -36,16 +49,11 @@ $ cd LiteX
 $ wget https://raw.githubusercontent.com/enjoy-digital/litex/master/litex_setup.py
 $ chmod +x litex_setup.py
 $ ./litex_setup.py --init --tag=2024.04 --install --user --config=full
-$ export PATH=$PATH:/opt/riscv/bin
-$ source /tools/Xilinx/Vivado/2023.1/settings64.sh
-$ litex-boards/litex_boards/targets/digilent_netfpga_sume.py --build --cpu-type rocket --cpu-variant linux --cpu-mem-width 8 --with-ethernet --with-sdcard --bus-standard axi
 ```
 
-The Verilog source file will be located at: build/digilent_netfpga_sume/gateware/digilent_netfpga_sume.v
+### 2.1 LibSPDM 
 
-#LibSPDM [5]
-
-Get LibSPDM library from the official repository.
+Get the LibSPDM library from the official repository.
 
 ```
 $ git clone https://github.com/DMTF/libspdm.git
@@ -54,11 +62,8 @@ $ git switch release-2.3
 $ git submodule update --init --recursive
 ```
 
-##LibSPDM - LiteX
-
-Before compiling LibSPDM for LiteX, certain files must be modified. Replace the corresponding files with those in this repository, the directories in this repository have the same names, just replace them.
-In summary they are: config.h, crt_wrapper_host.c and CMakeLists.txt. All of them in this repository libspdm/libspdm_LiteX
-Once this is done, follow the instructions below in libspdm directory:
+Before compiling LibSPDM, these files need to be modified: config.h, crt_wrapper_host.c and CMakeLists.txt. Change the corresponding files with those in this repository; the directories in the repository have the same names and are in libspdm/libspdm_LiteX.
+Once done, follow the instructions below in the LibSPDM directory:
 
 ```
 $ mkdir build
@@ -69,20 +74,56 @@ $ make copy_sample_key
 $ make
 ```
 
-##Libspdm in LiteX BIOS
-Before compiling LibSPDM within Litex, you must run the Makefile litex_libspdm.mk, paying attention to the correct directories when compiling.
+### 2.2 LibSPDM in BIOS
+Before compiling LibSPDM within Litex, you must run the Makefile litex_libspdm.mk. This Makefile will add LibSPDM files in the LiteX software directory. 
+Pay attention to the correct directories when compiling.
 
 ```
 $ make -f libspdm_litex.mk
 ```
-Replace the corresponding files in Litex and add the libraries needed for compilation. All the files are in this repository under the path "LiteX/litex/litex/soc/software/bios".
-After that, run again:
+
+Replace/Add the corresponding files in the LiteX BIOS directory: bswapsi2.c, int_endianness.h, int_lib.h, int_types.h, int_util.h, linker.ld, spdmfuncs.c, spdmfuncs.h and Makefile. These files are in this repository under the path of  "LiteX/litex/litex/soc/software/bios".
+
+Replace common.mak in "LiteX/litex/litex/soc/software".
+
+The directory structure with the added and replaced files will look similar:
 
 ```
+/LiteX/litex/litex/soc/software/common.mak
+/LiteX/litex/litex/soc/software/bios/bswapsi2.c
+/LiteX/litex/litex/soc/software/bios/int_endianness.h
+/LiteX/litex/litex/soc/software/bios/int_lib.h
+/LiteX/litex/litex/soc/software/bios/int_types.h
+/LiteX/litex/litex/soc/software/bios/int_util.h
+/LiteX/litex/litex/soc/software/bios/linker.ld
+/LiteX/litex/litex/soc/software/bios/spdmfuncs.c
+/LiteX/litex/litex/soc/software/bios/spdmfuncs.h 
+/LiteX/litex/litex/soc/software/bios/Makefile
+```
+
+***Pay attention to editing the correct directories when compiling, especially in the Makefiles (libspdm_litex.mk, Makefile, common.mak).***
+
+### 2.3 LibSPDM in Ethernet Card
+
+These files are for create an Ethernet card with SPDM registers in our FPGA.
+Replace/add the following files in their respective directories:
+
+```
+/LiteX/liteeth/liteeth/phy/v7_1000basex.py
+/LiteX/liteiclink/liteiclink/serdes/gth_7series.py
+/LiteX/liteiclink/liteiclink/serdes/gth_7series_init.py
+/LiteX/litex-boards/litex-boards/platforms/digilent_netfpga_sume.py
+/LiteX/litex-boards/litex-boards/targets/digilent_netfpga_sume.py
+```
+After all these changes, go back to the main directory and follow:
+
+```
+$ export PATH=$PATH:/opt/riscv/bin
+$ source /tools/Xilinx/Vivado/2023.1/settings64.sh
 $ litex-boards/litex_boards/targets/digilent_netfpga_sume.py --build --cpu-type rocket --cpu-variant linux --cpu-mem-width 8 --with-ethernet --with-sdcard --bus-standard axi
 ```
 
-#System on Chip - Software [3]
+# System on Chip - Software [3]
 
 ## Kernel Image and rootfs.cpio
 
@@ -217,8 +258,5 @@ $ make linux-rebuild
 
 
 # References
-[1] https://github.com/riscv/riscv-gnu-toolchain
-[2] https://github.com/enjoy-digital/litex
-[3] https://github.com/litex-hub/linux-on-litex-rocket
-[4] https://github.com/riscv-software-src/opensbi
-[5] https://github.com/DMTF/libspdm.git
+[1] https://www.dmtf.org/sites/default/files/standards/documents/DSP0274_1.2.1.pdf
+
