@@ -9,7 +9,25 @@ This repository contains an implementation project of the Security Protocol and 
 
 The project is executed in a NetFPGA SUME.
 
+Vivado 2023 or above with Virtex-7 license is required.
+The host machine need at least 16GB RAM.
+
 # TCL Method
+In the TCL Script method, a script recreates the hardware inside Vivado using Verilog source code. The software is already pre-compiled and incorporated into the binary during compilation.
+To replicate the experiment follow:
+
+1. Open Vivado Tcl Shell command prompt.
+2. cd into the directory of SoC/SoC_with_spdm.
+3. Run ***source digilent_netfpga_sume.tcl -notrace*** to generate a binary.
+
+Building the project may take a very long time (~1 hour using 4 cores).
+
+## Note:
+A SoC version without SPDM is avaliable for comparative. If required:
+
+1. Open Vivado Tcl Shell command prompt.
+2. cd into the directory of SoC/SoC_no_spdm.
+3. Run ***source digilent_netfpga_sume.tcl -notrace*** to generate a binary.
 
 # Compile Method
 All libraries and detailed toolchain
