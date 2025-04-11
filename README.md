@@ -30,7 +30,7 @@ A SoC version without SPDM is avaliable for comparative. If required:
 3. Run ***source digilent_netfpga_sume.tcl -notrace*** to generate a binary.
 
 # Compile Method
-All libraries and detailed toolchain
+All libraries and detailed toolchain. In the Compile Method, all source code is in "SourceCode".
 
 ## 1. RISC-V GNU Toolchain
 
@@ -210,8 +210,6 @@ $ make
 The binary of Kernel Image are in the /output/images/Image
 The binary of rootfs.cpio are in the /output/images/rootfs.cpio
 
-The Pre Compiled Binaries are in the System_on_Chip/Binaries/Image and System_on_Chip/Binaries/rootfs.cpio
-
 ## Bootloader - OpenSBI [4]
 
 Using OpenSBI 0.8
@@ -225,8 +223,6 @@ $ make CROSS_COMPILE=riscv64-unknown-linux-gnu- PLATFORM=generic \
     FW_FDT_PATH=PATH/TO/nexys4ddr.dtb FW_JUMP_FDT_ADDR=0x82400000
 ```
 The binary of OpenSBI are in /opensbi/build/platform/generic/firmware/fw_jump.bin
-
-The Pre Compiled Binaries are in the System_on_Chip/Binaries/fw_jump.bin
 
 ## Running
 
@@ -249,7 +245,7 @@ litex_term /dev/ttyUSB1 --images=PATH/TO/boot.json
 Execute the digilent_nexys4ddr.bit in the FPGA.
 
 
-##LibSPDM - Kernel Linux
+## LibSPDM - Kernel Linux
 Before compiling LibSPDM for Kernel, certain files must be modified. Replace the corresponding files with those in this repository, the directories in this repository have the same names, just replace them.
 In summary they are: config.h, crt_wrapper_host.c, bignum.c and CMakeLists.txt. All of them in this repository libspdm/libspdm_Kernel.
 Once this is done, follow the instructions below in libspdm directory:
@@ -265,8 +261,8 @@ $ make
 ```
 
 
-#Libspdm in Linux
-Replace the corresponding files in this directory in buildroot-2023.05.1/output/build/linux-6.1.26 and add the libraries needed for compilation. All the files are in this repository under the path "System_on_Chip/Software".
+# Libspdm in Linux
+Replace the corresponding files in this directory in buildroot-2023.05.1/output/build/linux-6.1.26 and add the libraries needed for compilation. All the files are in this repository under the path "software_configs/Software".
 After that:
 
 ```
