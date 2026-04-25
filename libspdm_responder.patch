@@ -1,0 +1,74 @@
+@@ -385,7 +392,8 @@ static libspdm_return_t libspdm_get_response_key_exchange(
+ 
+     ptr += measurement_summary_hash_size;
+     
+-    *(uint16_t *)ptr = (uint16_t)opaque_key_exchange_rsp_size;
++    ptr[0] = (uint8_t)(opaque_key_exchange_rsp_size & 0xFF);        // Low byte
++    ptr[1] = (uint8_t)((opaque_key_exchange_rsp_size >> 8) & 0xFF); // High byte
+     ptr += sizeof(uint16_t);
+     status = libspdm_build_opaque_data_version_selection_data(
+         spdm_context, &opaque_key_exchange_rsp_size, ptr);
+diff --git a/os_stub/mbedtlslib/include/mbedtls/config.h b/os_stub/mbedtlslib/include/mbedtls/config.h
+index 82507ea4..5b9df32d 100644
+--- a/os_stub/mbedtlslib/include/mbedtls/config.h
++++ b/os_stub/mbedtlslib/include/mbedtls/config.h
+@@ -66,7 +66,7 @@
+  *
+  * Comment to disable the use of assembly code.
+  */
+-#define MBEDTLS_HAVE_ASM
++//#define MBEDTLS_HAVE_ASM
+ 
+ /**
+  * \def MBEDTLS_NO_UDBL_DIVISION
+@@ -140,7 +140,7 @@
+  *
+  * Comment if your system does not support time functions
+  */
+-#define MBEDTLS_HAVE_TIME
++//#define MBEDTLS_HAVE_TIME
+ 
+ /**
+  * \def MBEDTLS_HAVE_TIME_DATE
+@@ -161,7 +161,7 @@
+  * mbedtls_platform_gmtime_r() at compile-time by using the macro
+  * MBEDTLS_PLATFORM_GMTIME_R_ALT.
+  */
+-#define MBEDTLS_HAVE_TIME_DATE
++//#define MBEDTLS_HAVE_TIME_DATE
+ 
+ /**
+  * \def MBEDTLS_PLATFORM_MEMORY
+@@ -1023,7 +1023,7 @@ extern void my_free( void *ptr );
+  *      MBEDTLS_TLS_RSA_WITH_RC4_128_SHA
+  *      MBEDTLS_TLS_RSA_WITH_RC4_128_MD5
+  */
+-/*#define MBEDTLS_KEY_EXCHANGE_RSA_ENABLED*/
++#define MBEDTLS_KEY_EXCHANGE_RSA_ENABLED
+ 
+ /**
+  * \def MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED
+@@ -1056,7 +1056,7 @@ extern void my_free( void *ptr );
+  *             See dhm.h for more details.
+  *
+  */
+-/*#define MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED*/
++#define MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED
+ 
+ /**
+  * \def MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED
+@@ -2309,7 +2309,7 @@ extern void my_free( void *ptr );
+  *
+  * This modules adds support for the AES-NI instructions on x86-64
+  */
+-#define MBEDTLS_AESNI_C
++//#define MBEDTLS_AESNI_C
+ 
+ /**
+  * \def MBEDTLS_AES_C
+diff --git a/os_stub/mbedtlslib/mbedtls b/os_stub/mbedtlslib/mbedtls
+--- a/os_stub/mbedtlslib/mbedtls
++++ b/os_stub/mbedtlslib/mbedtls
+@@ -1 +1 @@
+-Subproject commit dd79db10014d85b26d11fe57218431f2e5ede6f2
++Subproject commit dd79db10014d85b26d11fe57218431f2e5ede6f2-dirty

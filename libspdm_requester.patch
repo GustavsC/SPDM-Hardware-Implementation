@@ -1,0 +1,388 @@
+diff --git a/library/spdm_common_lib/libspdm_com_crypto_service.c b/library/spdm_common_lib/libspdm_com_crypto_service.c
+index b3f86d6a..520c1f74 100644
+--- a/library/spdm_common_lib/libspdm_com_crypto_service.c
++++ b/library/spdm_common_lib/libspdm_com_crypto_service.c
+@@ -928,6 +928,7 @@ bool libspdm_verify_certificate_chain_hash(libspdm_context_t *spdm_context,
+  * @retval true  signature verification pass.
+  * @retval false signature verification fail.
+  **/
++#include <stdio.h>
+ bool libspdm_verify_challenge_auth_signature(libspdm_context_t *spdm_context,
+                                              bool is_requester,
+                                              const void *sign_data,
+@@ -1027,6 +1028,10 @@ bool libspdm_verify_challenge_auth_signature(libspdm_context_t *spdm_context,
+                 spdm_context->connection_info.algorithm.base_asym_algo,
+                 spdm_context->connection_info.algorithm.base_hash_algo,
+                 context, m1m2_hash, m1m2_hash_size, sign_data, sign_data_size);
++                
++                printf("M1/M2 Hash: ");
++                for (int i = 0; i < m1m2_hash_size; i++)
++                  printf("0x%x ", m1m2_hash[i]); 
+             if (!result) {
+                 LIBSPDM_DEBUG((LIBSPDM_DEBUG_INFO, "!!! verify_challenge_signature - FAIL !!!\n"));
+                 return false;
+diff --git a/library/spdm_requester_lib/libspdm_req_challenge.c b/library/spdm_requester_lib/libspdm_req_challenge.c
+index 7cf2d7db..b88219e8 100644
+--- a/library/spdm_requester_lib/libspdm_req_challenge.c
++++ b/library/spdm_requester_lib/libspdm_req_challenge.c
+@@ -41,6 +41,8 @@ typedef struct {
+  * @retval RETURN_DEVICE_ERROR          A device error occurs when communicates with the device.
+  * @retval RETURN_SECURITY_VIOLATION    Any verification fails.
+  **/
++ #include <string.h>
++ #include <stdio.h>
+ static libspdm_return_t libspdm_try_challenge(void *context, uint8_t slot_id,
+                                               uint8_t measurement_hash_type,
+                                               void *measurement_hash,
+@@ -249,7 +251,9 @@ static libspdm_return_t libspdm_try_challenge(void *context, uint8_t slot_id,
+     LIBSPDM_INTERNAL_DUMP_DATA(measurement_summary_hash, measurement_summary_hash_size);
+     LIBSPDM_DEBUG((LIBSPDM_DEBUG_INFO, "\n"));
+ 
+-    opaque_length = *(uint16_t *)ptr;
++    uint16_t tmp;
++    memcpy(&opaque_length, ptr, sizeof(tmp));
++
+     if (opaque_length > SPDM_MAX_OPAQUE_DATA_SIZE) {
+         status = LIBSPDM_STATUS_INVALID_MSG_FIELD;
+         goto receive_done;
+@@ -291,13 +295,14 @@ static libspdm_return_t libspdm_try_challenge(void *context, uint8_t slot_id,
+     signature = ptr;
+     LIBSPDM_DEBUG((LIBSPDM_DEBUG_INFO, "signature (0x%x):\n", signature_size));
+     LIBSPDM_INTERNAL_DUMP_HEX(signature, signature_size);
++    printf("Verifying Challenge Signature... \n");
+     result = libspdm_verify_challenge_auth_signature(spdm_context, true, signature, signature_size);
+     if (!result) {
+         libspdm_reset_message_c(spdm_context);
+         status = LIBSPDM_STATUS_VERIF_FAIL;
+         goto receive_done;
+     }
+-
++    printf("\n\nSignature Verified. \n");
+     if (measurement_hash != NULL) {
+         libspdm_copy_mem(measurement_hash, measurement_summary_hash_size,
+                          measurement_summary_hash, measurement_summary_hash_size);
+diff --git a/library/spdm_requester_lib/libspdm_req_get_measurements.c b/library/spdm_requester_lib/libspdm_req_get_measurements.c
+index c6bb7522..6a6cc61f 100644
+--- a/library/spdm_requester_lib/libspdm_req_get_measurements.c
++++ b/library/spdm_requester_lib/libspdm_req_get_measurements.c
+@@ -5,7 +5,8 @@
+  **/
+ 
+ #include "internal/libspdm_requester_lib.h"
+-
++#include <string.h>
++#include <stdio.h>
+ #if LIBSPDM_ENABLE_CAPABILITY_MEAS_CAP
+ 
+ bool libspdm_verify_measurement_signature(libspdm_context_t *spdm_context,
+@@ -81,6 +82,10 @@ bool libspdm_verify_measurement_signature(libspdm_context_t *spdm_context,
+             spdm_context->connection_info.algorithm.base_hash_algo,
+             spdm_context->connection_info.peer_used_cert_chain[slot_id].leaf_cert_public_key,
+             l1l2_hash, l1l2_hash_size, sign_data, sign_data_size);
++            
++            printf("L1/L2 Hash (Measurements): "); 
++            for (int i = 0; i < l1l2_hash_size; i++)
++                printf("0x%x ", l1l2_hash[i]);
+         if (!result) {
+             LIBSPDM_DEBUG((LIBSPDM_DEBUG_INFO, "!!! verify_measurement_signature - FAIL !!!\n"));
+             return false;
+@@ -405,8 +410,9 @@ static libspdm_return_t libspdm_try_get_measurement(void *context, const uint32_
+         if (responder_nonce != NULL) {
+             libspdm_copy_mem(responder_nonce, SPDM_NONCE_SIZE, nonce, SPDM_NONCE_SIZE);
+         }
++        uint16_t tmp;
++        memcpy(&opaque_length, ptr, sizeof(tmp));
+ 
+-        opaque_length = *(uint16_t *)ptr;
+         if (opaque_length > SPDM_MAX_OPAQUE_DATA_SIZE) {
+             status = LIBSPDM_STATUS_INVALID_MSG_FIELD;
+             goto receive_done;
+@@ -452,7 +458,7 @@ static libspdm_return_t libspdm_try_get_measurement(void *context, const uint32_
+         signature = ptr;
+         LIBSPDM_DEBUG((LIBSPDM_DEBUG_INFO, "signature (0x%x):\n", signature_size));
+         LIBSPDM_INTERNAL_DUMP_HEX(signature, signature_size);
+-
++        printf("Verifying Measurements Signature... \n");
+         result = libspdm_verify_measurement_signature(
+             spdm_context, session_info, signature, signature_size);
+         if (!result) {
+@@ -460,7 +466,7 @@ static libspdm_return_t libspdm_try_get_measurement(void *context, const uint32_
+             status = LIBSPDM_STATUS_VERIF_FAIL;
+             goto receive_done;
+         }
+-
++        printf("\n\nMeasurement Signature verified. \n");
+         libspdm_reset_message_m(spdm_context, session_info);
+     } else {
+         if (spdm_response_size <
+@@ -479,8 +485,9 @@ static libspdm_return_t libspdm_try_get_measurement(void *context, const uint32_
+         if (responder_nonce != NULL) {
+             libspdm_copy_mem(responder_nonce, SPDM_NONCE_SIZE, nonce, SPDM_NONCE_SIZE);
+         }
++        uint16_t temp;        
++        memcpy(&opaque_length, ptr, sizeof(temp));
+ 
+-        opaque_length = *(uint16_t *)ptr;
+         if (opaque_length > SPDM_MAX_OPAQUE_DATA_SIZE) {
+             status = LIBSPDM_STATUS_INVALID_MSG_FIELD;
+             goto receive_done;
+diff --git a/library/spdm_requester_lib/libspdm_req_key_exchange.c b/library/spdm_requester_lib/libspdm_req_key_exchange.c
+index d00a3294..7b31ffeb 100644
+--- a/library/spdm_requester_lib/libspdm_req_key_exchange.c
++++ b/library/spdm_requester_lib/libspdm_req_key_exchange.c
+@@ -100,7 +100,8 @@ bool libspdm_verify_key_exchange_rsp_hmac(libspdm_context_t *spdm_context,
+ 
+     return true;
+ }
+-
++#include <stdio.h>
++#include <string.h>
+ bool libspdm_verify_key_exchange_rsp_signature(
+     libspdm_context_t *spdm_context, libspdm_session_info_t *session_info,
+     const void *sign_data, const size_t sign_data_size)
+@@ -201,6 +202,10 @@ bool libspdm_verify_key_exchange_rsp_signature(
+             spdm_context->connection_info.algorithm.base_hash_algo,
+             spdm_context->connection_info.peer_used_cert_chain[slot_id].leaf_cert_public_key,
+             hash_data, hash_size, sign_data, sign_data_size);
++            
++            printf("TH Hash (Key Exchange): "); 
++            for (int i = 0; i < hash_size; i++)
++                printf("0x%x ", hash_data[i]);
+     } else {
+         /* Get leaf cert from cert chain*/
+         result = libspdm_get_peer_cert_chain_data(
+@@ -254,6 +259,8 @@ bool libspdm_verify_key_exchange_rsp_signature(
+  * @param  requester_nonce        If not NULL, a buffer to hold the requester nonce (32 bytes).
+  * @param  responder_nonce        If not NULL, a buffer to hold the responder nonce (32 bytes).
+  **/
++ #include <string.h>
++ #include <stdio.h>
+ static libspdm_return_t libspdm_try_send_receive_key_exchange(
+     libspdm_context_t *spdm_context, uint8_t measurement_hash_type,
+     uint8_t slot_id, uint8_t session_policy, uint32_t *session_id,
+@@ -369,7 +376,7 @@ static libspdm_return_t libspdm_try_send_receive_key_exchange(
+         libspdm_release_sender_buffer (spdm_context);
+         return LIBSPDM_STATUS_CRYPTO_ERROR;
+     }
+-
++    printf("\nGenerating DHE Key... \n\n");
+     result = libspdm_secured_message_dhe_generate_key(
+         spdm_context->connection_info.algorithm.dhe_named_group,
+         dhe_context, ptr, &dhe_key_size);
+@@ -385,7 +392,8 @@ static libspdm_return_t libspdm_try_send_receive_key_exchange(
+ 
+     opaque_key_exchange_req_size =
+         libspdm_get_opaque_data_supported_version_data_size(spdm_context);
+-    *(uint16_t *)ptr = (uint16_t)opaque_key_exchange_req_size;
++    ptr[0] = (uint8_t)(opaque_key_exchange_req_size & 0xFF);        // Low byte
++    ptr[1] = (uint8_t)((opaque_key_exchange_req_size >> 8) & 0xFF); // High byte
+     ptr += sizeof(uint16_t);
+     status = libspdm_build_opaque_data_supported_version_data(
+         spdm_context, &opaque_key_exchange_req_size, ptr);
+@@ -396,6 +404,9 @@ static libspdm_return_t libspdm_try_send_receive_key_exchange(
+ 
+     /* -=[Send Request Phase]=- */
+     status = libspdm_send_spdm_request(spdm_context, NULL, spdm_request_size, spdm_request);
++    char request_buf[spdm_request_size];
++    memcpy(request_buf,spdm_request,spdm_request_size);
++
+     if (LIBSPDM_STATUS_IS_ERROR(status)) {
+         libspdm_secured_message_dhe_free(
+             spdm_context->connection_info.algorithm.dhe_named_group, dhe_context);
+@@ -540,7 +551,7 @@ static libspdm_return_t libspdm_try_send_receive_key_exchange(
+         status = LIBSPDM_STATUS_INVALID_MSG_SIZE;
+         goto receive_done;
+     }
+-
++    printf("Verifying Random Data... \n\n");
+     LIBSPDM_DEBUG((LIBSPDM_DEBUG_INFO, "ServerRandomData (0x%x) - ", SPDM_RANDOM_DATA_SIZE));
+     LIBSPDM_INTERNAL_DUMP_DATA(spdm_response->random_data, SPDM_RANDOM_DATA_SIZE);
+     LIBSPDM_DEBUG((LIBSPDM_DEBUG_INFO, "\n"));
+@@ -563,7 +574,7 @@ static libspdm_return_t libspdm_try_send_receive_key_exchange(
+ 
+     ptr += measurement_summary_hash_size;
+ 
+-    opaque_length = *(uint16_t *)ptr;
++    opaque_length = ((uint8_t*)ptr)[0] | (((uint8_t*)ptr)[1] << 8);
+     if (opaque_length > SPDM_MAX_OPAQUE_DATA_SIZE) {
+         libspdm_secured_message_dhe_free(
+             spdm_context->connection_info.algorithm.dhe_named_group, dhe_context);
+@@ -580,6 +591,7 @@ static libspdm_return_t libspdm_try_send_receive_key_exchange(
+         status = LIBSPDM_STATUS_INVALID_MSG_SIZE;
+         goto receive_done;
+     }
++    printf("Verifying Opaque Data... \n\n");
+     if (opaque_length != 0) {
+         status = libspdm_process_opaque_data_version_selection_data(
+             spdm_context, opaque_length, ptr);
+@@ -609,6 +621,7 @@ static libspdm_return_t libspdm_try_send_receive_key_exchange(
+     }
+ 
+     /* -=[Process Response Phase]=- */
++    memcpy(spdm_request,request_buf,spdm_request_size);
+     status = libspdm_append_message_k(spdm_context, session_info, true, spdm_request,
+                                       spdm_request_size);
+     if (LIBSPDM_STATUS_IS_ERROR(status)) {
+@@ -628,7 +641,7 @@ static libspdm_return_t libspdm_try_send_receive_key_exchange(
+         status = LIBSPDM_STATUS_BUFFER_FULL;
+         goto receive_done;
+     }
+-
++    printf("Verifying Signature... \n");
+     signature = ptr;
+     LIBSPDM_DEBUG((LIBSPDM_DEBUG_INFO, "signature (0x%x):\n", signature_size));
+     LIBSPDM_INTERNAL_DUMP_HEX(signature, signature_size);
+@@ -663,7 +676,7 @@ static libspdm_return_t libspdm_try_send_receive_key_exchange(
+         status = LIBSPDM_STATUS_CRYPTO_ERROR;
+         goto receive_done;
+     }
+-
++    printf("\n\nSignature verified. \n");
+     LIBSPDM_DEBUG((LIBSPDM_DEBUG_INFO, "libspdm_generate_session_handshake_key[%x]\n",
+                    *session_id));
+     result = libspdm_calculate_th1_hash(spdm_context, session_info, true, th1_hash_data);
+diff --git a/library/spdm_transport_mctp_lib/libspdm_mctp_common.c b/library/spdm_transport_mctp_lib/libspdm_mctp_common.c
+index 34603dd8..36cff534 100644
+--- a/library/spdm_transport_mctp_lib/libspdm_mctp_common.c
++++ b/library/spdm_transport_mctp_lib/libspdm_mctp_common.c
+@@ -200,7 +200,8 @@ libspdm_return_t libspdm_transport_mctp_decode_message(
+     size_t *message_size, void **message)
+ {
+     libspdm_return_t status;
+-    uint32_t *secured_message_session_id;
++    uint32_t session_id_buffer = 0;
++    uint32_t *secured_message_session_id = &session_id_buffer;
+     uint8_t *secured_message;
+     size_t secured_message_size;
+     uint8_t *app_message;
+@@ -224,7 +225,6 @@ libspdm_return_t libspdm_transport_mctp_decode_message(
+         return LIBSPDM_STATUS_UNSUPPORTED_CAP;
+     }
+ 
+-    secured_message_session_id = NULL;
+     /* Detect received message*/
+     status = libspdm_mctp_decode_message(
+         &secured_message_session_id, transport_message_size,
+diff --git a/library/spdm_transport_mctp_lib/libspdm_mctp_mctp.c b/library/spdm_transport_mctp_lib/libspdm_mctp_mctp.c
+index 918eecd1..6342c334 100644
+--- a/library/spdm_transport_mctp_lib/libspdm_mctp_mctp.c
++++ b/library/spdm_transport_mctp_lib/libspdm_mctp_mctp.c
+@@ -8,6 +8,8 @@
+ #include "industry_standard/mctp.h"
+ #include "hal/library/debuglib.h"
+ #include "hal/library/memlib.h"
++#include <stdint.h>
++#include <string.h>
+ 
+ #define MCTP_ALIGNMENT 1
+ #define MCTP_SEQUENCE_NUMBER_COUNT 2
+@@ -79,10 +81,13 @@ libspdm_return_t libspdm_mctp_encode_message(const uint32_t *session_id, size_t
+     *transport_message = (uint8_t *)message - sizeof(mctp_message_header_t);
+     mctp_message_header = *transport_message;
+     if (session_id != NULL) {
+-        mctp_message_header->message_type =
+-            MCTP_MESSAGE_TYPE_SECURED_MCTP;
+-        LIBSPDM_ASSERT(*session_id == *(uint32_t *)(message));
+-        if (*session_id != *(uint32_t *)(message)) {
++        mctp_message_header->message_type = MCTP_MESSAGE_TYPE_SECURED_MCTP;
++
++        uint32_t message_session_id;
++        memcpy(&message_session_id, message, sizeof(uint32_t));
++    
++        LIBSPDM_ASSERT(*session_id == message_session_id);
++        if (*session_id != message_session_id) {
+             return LIBSPDM_STATUS_INVALID_MSG_FIELD;
+         }
+     } else {
+@@ -131,8 +136,11 @@ libspdm_return_t libspdm_mctp_decode_message(uint32_t **session_id,
+             sizeof(mctp_message_header_t) + sizeof(uint32_t)) {
+             return LIBSPDM_STATUS_INVALID_MSG_SIZE;
+         }
+-        *session_id = (uint32_t *)((uint8_t *)transport_message +
+-                                   sizeof(mctp_message_header_t));
++        uint8_t *payload = (uint8_t *)transport_message + sizeof(mctp_message_header_t);
++
++        static uint32_t session_id_val;
++        memcpy(&session_id_val, payload, sizeof(uint32_t));
++        *session_id = &session_id_val; //Pointer Fix.
+         break;
+     case MCTP_MESSAGE_TYPE_SPDM:
+         if (session_id != NULL) {
+diff --git a/os_stub/cryptlib_mbedtls/pk/x509.c b/os_stub/cryptlib_mbedtls/pk/x509.c
+index 39719aa0..db1c9cf9 100644
+--- a/os_stub/cryptlib_mbedtls/pk/x509.c
++++ b/os_stub/cryptlib_mbedtls/pk/x509.c
+@@ -20,6 +20,9 @@
+ #include <mbedtls/entropy.h>
+ #include <mbedtls/ctr_drbg.h>
+ 
++#include <stdio.h>
++
++
+ /* OID*/
+ 
+ #define OID_COMMON_NAME       { 0x55, 0x04, 0x03 }
+diff --git a/os_stub/mbedtlslib/include/mbedtls/config.h b/os_stub/mbedtlslib/include/mbedtls/config.h
+index 82507ea4..5b9df32d 100644
+--- a/os_stub/mbedtlslib/include/mbedtls/config.h
++++ b/os_stub/mbedtlslib/include/mbedtls/config.h
+@@ -66,7 +66,7 @@
+  *
+  * Comment to disable the use of assembly code.
+  */
+-#define MBEDTLS_HAVE_ASM
++//#define MBEDTLS_HAVE_ASM
+ 
+ /**
+  * \def MBEDTLS_NO_UDBL_DIVISION
+@@ -140,7 +140,7 @@
+  *
+  * Comment if your system does not support time functions
+  */
+-#define MBEDTLS_HAVE_TIME
++//#define MBEDTLS_HAVE_TIME
+ 
+ /**
+  * \def MBEDTLS_HAVE_TIME_DATE
+@@ -161,7 +161,7 @@
+  * mbedtls_platform_gmtime_r() at compile-time by using the macro
+  * MBEDTLS_PLATFORM_GMTIME_R_ALT.
+  */
+-#define MBEDTLS_HAVE_TIME_DATE
++//#define MBEDTLS_HAVE_TIME_DATE
+ 
+ /**
+  * \def MBEDTLS_PLATFORM_MEMORY
+@@ -1023,7 +1023,7 @@ extern void my_free( void *ptr );
+  *      MBEDTLS_TLS_RSA_WITH_RC4_128_SHA
+  *      MBEDTLS_TLS_RSA_WITH_RC4_128_MD5
+  */
+-/*#define MBEDTLS_KEY_EXCHANGE_RSA_ENABLED*/
++#define MBEDTLS_KEY_EXCHANGE_RSA_ENABLED
+ 
+ /**
+  * \def MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED
+@@ -1056,7 +1056,7 @@ extern void my_free( void *ptr );
+  *             See dhm.h for more details.
+  *
+  */
+-/*#define MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED*/
++#define MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED
+ 
+ /**
+  * \def MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED
+@@ -2309,7 +2309,7 @@ extern void my_free( void *ptr );
+  *
+  * This modules adds support for the AES-NI instructions on x86-64
+  */
+-#define MBEDTLS_AESNI_C
++//#define MBEDTLS_AESNI_C
+ 
+ /**
+  * \def MBEDTLS_AES_C
+diff --git a/os_stub/mbedtlslib/mbedtls b/os_stub/mbedtlslib/mbedtls
+--- a/os_stub/mbedtlslib/mbedtls
++++ b/os_stub/mbedtlslib/mbedtls
+@@ -1 +1 @@
+-Subproject commit dd79db10014d85b26d11fe57218431f2e5ede6f2
++Subproject commit dd79db10014d85b26d11fe57218431f2e5ede6f2-dirty
